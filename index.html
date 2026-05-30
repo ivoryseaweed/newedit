@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Collage Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f3ef;
+  --surface: #ffffff;
+  --surface2: #f0ede8;
+  --border: #e0dbd3;
+  --border2: #c8c2b8;
+  --text: #1a1815;
+  --text2: #6b6560;
+  --text3: #a09990;
+  --accent: #2a2520;
+  --radius: 6px;
+  --header-h: 52px;
+  --tab-h: 48px;
+}
+
+/* ── Mobile base (default) ── */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  height: var(--header-h);
+  flex-shrink: 0;
+  padding: 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 20;
+}
+.logo { font-size: 14px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+.logo span { color: var(--text3); font-weight: 300; }
+.px-badge { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+/* ── App body ── */
+.app-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Canvas zone ── */
+.canvas-zone {
+  flex-shrink: 0;
+  background: #111;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  aspect-ratio: 1179 / 707;
+  background: #1a1815;
+  border-radius: 8px;
+  overflow: hidden;
+  touch-action: none;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+}
+
+.canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#mainCanvas   { z-index: 1; }
+#guideCanvas  { z-index: 2; pointer-events: none; }
+
+/* drop-hint overlay */
+.drop-hints {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  z-index: 3;
+  pointer-events: none;
+}
+.drop-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 1;
+  transition: opacity .2s;
+  position: relative;
+  pointer-events: none;
+}
+.drop-hint.empty { pointer-events: auto; cursor: pointer; }
+.drop-hint.hidden { opacity: 0; pointer-events: none !important; }
+.drop-hint i { font-size: 20px; color: rgba(255,255,255,0.28); pointer-events: none; }
+.drop-hint p { font-size: 11px; color: rgba(255,255,255,0.28); pointer-events: none; }
+.hint-file-label {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  display: block;
+}
+.hint-file-label input[type=file] {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── 모바일 Right Column 패널 기반 ── */
+.right-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+}
+
+/* ── Tab bar (mobile) ── */
+.tab-bar {
+  flex-shrink: 0;
+  height: var(--tab-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.tab-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text3);
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.tab-btn i { font-size: 16px; }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+
+/* ── Panels ── */
+.panels {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+}
+.panel-page { display: none; padding: 16px; }
+.panel-page.active { display: block; }
+
+/* ── Section label ── */
+.sec {
+  font-size: 10px; font-weight: 500; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 5px;
+}
+.sec i { font-size: 13px; }
+
+/* ── Upload cards ── */
+.upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.upload-card {
+  aspect-ratio: 5/3;
+  border: 1px dashed var(--border2);
+  border-radius: var(--radius);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer; position: relative; overflow: hidden;
+  background: var(--surface); transition: border-color .15s;
+}
+.upload-card:active { background: var(--surface2); }
+.upload-card > i { font-size: 22px; color: var(--text3); }
+.upload-card > span { font-size: 10px; color: var(--text3); }
+.upload-card input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-card.has-img { border-style: solid; border-color: var(--border2); }
+.upload-card.has-img > i,
+.upload-card.has-img > span { display: none; }
+.thumb { position: absolute; inset: 0; background-size: cover; background-position: center; border-radius: 5px; }
+.remove-img {
+  position: absolute; top: 4px; right: 4px;
+  width: 22px; height: 22px;
+  background: rgba(0,0,0,0.6); border-radius: 50%;
+  display: none; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 5;
+}
+.upload-card.has-img .remove-img { display: flex; }
+.remove-img i { font-size: 12px; color: #fff; pointer-events: none; }
+
+/* mute chips */
+.chips-section { margin-top: 14px; }
+.chips-label { font-size: 11px; color: var(--text2); margin-bottom: 8px; }
+.color-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.color-chip {
+  width: 30px; height: 30px; border-radius: 50%;
+  cursor: pointer; border: 2px solid transparent;
+  transition: transform .15s, border-color .15s; flex-shrink: 0;
+}
+.color-chip.active { border-color: var(--accent); transform: scale(1.12); }
+
+/* ── Text controls ── */
+.txt-input {
+  width: 100%; height: 40px; padding: 0 12px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); outline: none;
+  margin-bottom: 10px;
+}
+.txt-input:focus { border-color: var(--accent); }
+.ctrl-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ctrl-lbl { font-size: 12px; color: var(--text2); white-space: nowrap; min-width: 28px; }
+select.font-sel {
+  flex: 1; height: 36px; padding: 0 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); outline: none;
+}
+input[type=range] {
+  -webkit-appearance: none; height: 4px;
+  background: var(--border2); border-radius: 2px; flex: 1; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px;
+  background: var(--accent); border-radius: 50%; cursor: pointer;
+}
+.size-val { font-size: 12px; color: var(--text2); min-width: 28px; text-align: right; font-family: 'DM Mono', monospace; }
+input[type=color] {
+  width: 36px; height: 36px; padding: 2px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); cursor: pointer;
+}
+.btn-add {
+  height: 36px; padding: 0 16px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+  cursor: pointer; white-space: nowrap; transition: opacity .15s;
+}
+.btn-add:active { opacity: .75; }
+
+/* layer list */
+.layer-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.layer-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer; background: var(--surface);
+  transition: border-color .12s;
+}
+.layer-item.selected { border-color: var(--accent); background: var(--bg); }
+.layer-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.layer-txt { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer-del {
+  font-size: 14px; color: var(--text3); cursor: pointer; padding: 4px 6px;
+  background: none; border: none; border-radius: var(--radius);
+  transition: background .12s, color .12s;
+}
+.layer-del:active { background: #fee2e2; color: #c0392b; }
+
+.hint-row { font-size: 11px; color: var(--text3); margin-top: 10px; line-height: 1.6; }
+.snap-hint { display: none; margin-bottom: 4px; }
+.snap-hint.visible { display: block; color: #c8960a; }
+
+/* download */
+.btn-dl {
+  width: 100%; height: 48px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: opacity .15s;
+}
+.btn-dl:active { opacity: .8; }
+.btn-dl i { font-size: 18px; }
+.dl-info { font-size: 11px; color: var(--text3); text-align: center; margin-top: 8px; font-family: 'DM Mono', monospace; }
+
+/* ── Desktop (768px+): side-by-side ── */
+@media (min-width: 768px) {
+  html, body { height: auto; overflow: visible; }
+  body { min-height: 100vh; }
+
+  .app-body {
+    flex-direction: row;
+    align-items: flex-start;
+    overflow: visible;
+    flex: 1;
+  }
+
+  .canvas-zone {
+    flex: 1;
+    padding: 24px;
+    background: var(--bg);
+    align-self: stretch;
+    align-items: flex-start;
+  }
+  .canvas-wrap { max-width: 100%; }
+
+  /* right column 구조 오버라이드 */
+  .right-col {
+    width: 284px;
+    flex: none;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* hide tab bar; show all panels stacked */
+  .tab-bar { display: none; }
+  .panels { flex: 1; overflow-y: visible; background: var(--surface); }
+  .panel-page { display: block !important; padding: 16px; }
+  .panel-page + .panel-page { border-top: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">Collage <span>Editor</span></span>
+  <span class="px-badge">1179 × 707 px</span>
+</header>
+
+<div class="app-body">
+
+  <div class="canvas-zone">
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="mainCanvas"  width="1179" height="707"></canvas>
+      <canvas id="guideCanvas" width="1179" height="707"></canvas>
+
+      <div class="drop-hints" id="dropHints">
+        <div class="drop-hint" id="hintL">
+          <i class="ti ti-photo"></i><p>좌측 사진</p>
+          <label class="hint-file-label">
+            <input type="file" id="fileL" accept="image/*">
+          </label>
+        </div>
+        <div class="drop-hint" id="hintR">
+          <i class="ti ti-photo"></i><p>우측 사진</p>
+          <label class="hint-file-label">
+            <input type="file" id="fileR" accept="image/*">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-col">
+
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="upload"><i class="ti ti-photo"></i>사진</button>
+      <button class="tab-btn" data-tab="text"><i class="ti ti-text-size"></i>텍스트</button>
+      <button class="tab-btn" data-tab="dl"><i class="ti ti-download"></i>저장</button>
+    </div>
+
+    <div class="panels">
+
+      <div class="panel-page active" id="tab-upload">
+        <div class="sec"><i class="ti ti-upload"></i> 이미지 업로드</div>
+        <div class="upload-grid">
+          <div class="upload-card" id="cardL">
+            <i class="ti ti-layout-sidebar"></i><span>좌측</span>
+            <input type="file" id="fileLs" accept="image/*">
+            <div class="thumb" id="thumbL"></div>
+            <div class="remove-img" id="removeL"><i class="ti ti-x"></i></div>
+          </div>
+          <div class="upload-card" id="cardR">
+            <i class="ti ti-layout-sidebar-right"></i><span>우측</span>
+            <input type="file" id="fileRs" accept="image/*">
+            <div class="thumb" id="thumbR"></div>
+            <div class="remove-img" id="removeR"><i class="ti ti-x"></i></div>
+          </div>
+        </div>
+        <div id="muteSection" style="display:none" class="chips-section">
+          <p class="chips-label">반대쪽 배경 컬러 선택</p>
+          <div class="color-chips" id="colorChips"></div>
+        </div>
+      </div>
+
+      <div class="panel-page" id="tab-text">
+        <div class="sec"><i class="ti ti-text-size"></i> 텍스트 오버레이</div>
+        <input type="text" id="txtInput" class="txt-input" placeholder="텍스트 입력...">
+        <div class="ctrl-row">
+          <span class="ctrl-lbl">폰트</span>
+          <select id="fontSel" class="font-sel">
+            <option value="DM Sans">DM Sans</option>
+            <option value="Georgia">Georgia</option>
+            <option value="DM Mono">DM Mono</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-lbl">크기</span>
+          <input type="range" id="fontSize" min="12" max="120" value="48">
+          <span class="size-val" id="fsVal">48</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-lbl">색상</span>
+          <input type="color" id="fontColor" value="#ffffff">
+          <button class="btn-add" id="addTxtBtn">+ 추가</button>
+        </div>
+        <div class="layer-list" id="layerList"></div>
+        <div class="hint-row">
+          <p class="snap-hint" id="snapHint"><i class="ti ti-git-merge" style="font-size:11px"></i> 정렬 안내선 활성화</p>
+          <p>캔버스에서 텍스트를 드래그하여 이동</p>
+        </div>
+      </div>
+
+      <div class="panel-page" id="tab-dl">
+        <div class="sec"><i class="ti ti-download"></i> 내보내기</div>
+        <button class="btn-dl" id="dlBtn"><i class="ti ti-download"></i> PNG 다운로드</button>
+        <p class="dl-info">1179 × 707 px · 고정 해상도</p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CW = 1179, CH = 707, SW = 589;
+const canvas    = document.getElementById('mainCanvas');
+const ctx       = canvas.getContext('2d');
+const gcanvas   = document.getElementById('guideCanvas');
+const gctx      = gcanvas.getContext('2d');
+const wrap      = document.getElementById('canvasWrap');
+
+let imgL = null, imgR = null;
+let solidColor = null;
+let texts = [];
+let selIdx = -1, dragIdx = -1;
+let dragOX = 0, dragOY = 0;
+let guideX = null, guideY = null, guideCX = null, guideCY = null;
+
+const SNAP = 10;
+const CX = CW / 2, CY = CH / 2;
+const SL = SW / 2, SR = SW + SW / 2;
+
+// ── Tabs ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel-page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Color palette ──
+function extractPalette(img) {
+  const tc = document.createElement('canvas');
+  tc.width = 80; tc.height = 48;
+  const tx = tc.getContext('2d');
+  tx.drawImage(img, 0, 0, 80, 48);
+  const d = tx.getImageData(0, 0, 80, 48).data;
+  let ar = 0, ag = 0, ab = 0, n = d.length / 4;
+  for (let i = 0; i < d.length; i += 4) { ar += d[i]; ag += d[i+1]; ab += d[i+2]; }
+  ar = Math.round(ar/n); ag = Math.round(ag/n); ab = Math.round(ab/n);
+  const shades = [[.5,.55],[.55,.6],[.6,.65],[.65,.7],[.7,.75],[.75,.8],[.8,.85],[.85,.9]];
+  return shades.map(([iw, ww]) => {
+    const r = Math.min(255, Math.round(ar*iw + 255*(1-iw)*ww + 200*(1-ww)*(1-iw)));
+    const g = Math.min(255, Math.round(ag*iw + 255*(1-iw)*ww + 200*(1-ww)*(1-iw)));
+    const b = Math.min(255, Math.round(ab*iw + 255*(1-iw)*ww + 200*(1-ww)*(1-iw)));
+    return `rgb(${r},${g},${b})`;
+  });
+}
+
+function showChips(img) {
+  const palette = extractPalette(img);
+  const colorWrap = document.getElementById('colorChips');
+  colorWrap.innerHTML = '';
+  palette.forEach((color, i) => {
+    const el = document.createElement('div');
+    el.className = 'color-chip' + (i === 0 ? ' active' : '');
+    el.style.background = color;
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      solidColor = color;
+      redraw();
+    });
+    colorWrap.appendChild(el);
+    if (i === 0) solidColor = color;
+  });
+  document.getElementById('muteSection').style.display = 'block';
+  redraw();
+}
+function hideChips() {
+  document.getElementById('muteSection').style.display = 'none';
+  solidColor = null;
+}
+
+// ── Draw ──
+function cover(c, img, dx, dy, dw, dh) {
+  const ir = img.naturalWidth / img.naturalHeight, cr = dw / dh;
+  let sx, sy, sw, sh;
+  if (ir > cr) { sh = img.naturalHeight; sw = sh*cr; sx = (img.naturalWidth-sw)/2; sy = 0; }
+  else         { sw = img.naturalWidth;  sh = sw/cr; sx = 0; sy = (img.naturalHeight-sh)/2; }
+  c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+}
+
+function redraw(exportCtx) {
+  const c = exportCtx || ctx;
+  c.clearRect(0, 0, CW, CH);
+
+  if (!imgL && !imgR) {
+    c.fillStyle = '#1a1815';
+    c.fillRect(0, 0, CW, CH);
+  } else if (imgL && !imgR) {
+    cover(c, imgL, 0, 0, SW, CH);
+    c.fillStyle = solidColor || '#888888';
+    c.fillRect(SW, 0, SW, CH);
+  } else if (!imgL && imgR) {
+    c.fillStyle = solidColor || '#888888';
+    c.fillRect(0, 0, SW, CH);
+    cover(c, imgR, SW, 0, SW, CH);
+  } else {
+    cover(c, imgL, 0, 0, SW, CH);
+    cover(c, imgR, SW, 0, SW, CH);
+  }
+
+  texts.forEach((t, i) => {
+    c.save();
+    c.font = `400 ${t.size}px "${t.font}", sans-serif`;
+    c.textAlign = 'left';
+    c.textBaseline = 'top';
+    if (i === selIdx && !exportCtx) {
+      const tw = c.measureText(t.text).width;
+      c.strokeStyle = 'rgba(255,255,255,0.65)';
+      c.lineWidth = 1;
+      c.setLineDash([5, 4]);
+      c.strokeRect(t.x - 4, t.y - 4, tw + 8, t.size * 1.2 + 8);
+      c.setLineDash([]);
+    }
+    c.fillStyle = t.color;
+    c.fillText(t.text, t.x, t.y);
+    c.restore();
+  });
+}
+
+function redrawGuides() {
+  gctx.clearRect(0, 0, CW, CH);
+  const hasSnap = guideX !== null || guideY !== null;
+  const hasCenter = guideCX !== null || guideCY !== null;
+  if (!hasSnap && !hasCenter) return;
+
+  gctx.save();
+  gctx.lineWidth = 1;
+
+  if (hasSnap) {
+    gctx.strokeStyle = 'rgba(255,210,0,0.85)';
+    gctx.setLineDash([6, 4]);
+    if (guideY !== null) { gctx.beginPath(); gctx.moveTo(0, guideY); gctx.lineTo(CW, guideY); gctx.stroke(); }
+    if (guideX !== null) { gctx.beginPath(); gctx.moveTo(guideX, 0); gctx.lineTo(guideX, CH); gctx.stroke(); }
+  }
+  if (hasCenter) {
+    gctx.strokeStyle = 'rgba(0,210,255,0.85)';
+    gctx.setLineDash([8, 5]);
+    if (guideCY !== null) { gctx.beginPath(); gctx.moveTo(0, guideCY); gctx.lineTo(CW, guideCY); gctx.stroke(); }
+    if (guideCX !== null) { gctx.beginPath(); gctx.moveTo(guideCX, 0); gctx.lineTo(guideCX, CH); gctx.stroke(); }
+  }
+  gctx.restore();
+}
+
+// ── Pointer helpers ──
+function canvasXY(e) {
+  const rect = canvas.getBoundingClientRect();
+  const s = CW / rect.width;
+  let cx, cy;
+  if (e.touches && e.touches.length > 0) {
+    cx = e.touches[0].clientX;
+    cy = e.touches[0].clientY;
+  } else if (e.changedTouches && e.changedTouches.length > 0) {
+    cx = e.changedTouches[0].clientX;
+    cy = e.changedTouches[0].clientY;
+  } else {
+    cx = e.clientX;
+    cy = e.clientY;
+  }
+  return { x: (cx - rect.left) * s, y: (cy - rect.top) * s };
+}
+
+function hitTest(x, y) {
+  for (let i = texts.length - 1; i >= 0; i--) {
+    ctx.font = `400 ${texts[i].size}px "${texts[i].font}", sans-serif`;
+    const tw = ctx.measureText(texts[i].text).width;
+    const th = texts[i].size * 1.2;
+    if (x >= texts[i].x - 8 && x <= texts[i].x + tw + 8 &&
+        y >= texts[i].y - 8 && y <= texts[i].y + th + 8) return i;
+  }
+  return -1;
+}
+
+function onDown(e) {
+  const { x, y } = canvasXY(e);
+  const hi = hitTest(x, y);
+
+  if (hi >= 0) {
+    if (e.cancelable) e.preventDefault();
+    dragIdx = hi; selIdx = hi;
+    dragOX = x - texts[hi].x;
+    dragOY = y - texts[hi].y;
+    document.getElementById('dropHints').style.pointerEvents = 'none';
+    renderLayers(); redraw();
+    return;
+  }
+
+  selIdx = -1; renderLayers(); redraw();
+}
+
+function onMove(e) {
+  if (e.touches && e.cancelable) e.preventDefault();
+  const { x, y } = canvasXY(e);
+
+  if (dragIdx < 0) {
+    if (!e.touches) wrap.style.cursor = hitTest(x, y) >= 0 ? 'grab' : 'crosshair';
+    return;
+  }
+
+  texts[dragIdx].x = x - dragOX;
+  texts[dragIdx].y = y - dragOY;
+
+  guideX = null; guideY = null; guideCX = null; guideCY = null;
+
+  texts.forEach((t, i) => {
+    if (i === dragIdx) return;
+    if (Math.abs(texts[dragIdx].y - t.y) < SNAP) { guideY = t.y; texts[dragIdx].y = t.y; }
+    if (Math.abs(texts[dragIdx].x - t.x) < SNAP) { guideX = t.x; texts[dragIdx].x = t.x; }
+  });
+
+  const t = texts[dragIdx];
+  ctx.font = `400 ${t.size}px "${t.font}", sans-serif`;
+  const tw = ctx.measureText(t.text).width, th = t.size;
+  const tcx = t.x + tw / 2, tcy = t.y + th / 2;
+
+  if (Math.abs(tcy - CY) < SNAP)  { guideCY = CY;  texts[dragIdx].y = CY - th / 2; }
+  if (Math.abs(tcx - CX) < SNAP)  { guideCX = CX;  texts[dragIdx].x = CX - tw / 2; }
+  if (Math.abs(tcx - SL) < SNAP)  { guideCX = SL;  texts[dragIdx].x = SL - tw / 2; }
+  if (Math.abs(tcx - SR) < SNAP)  { guideCX = SR;  texts[dragIdx].x = SR - tw / 2; }
+
+  const anySnap = guideX !== null || guideY !== null || guideCX !== null || guideCY !== null;
+  document.getElementById('snapHint').classList.toggle('visible', anySnap);
+  redrawGuides();
+  redraw();
+  
+  if (!e.touches) wrap.style.cursor = 'grabbing';
+}
+
+function onUp(e) {
+  dragIdx = -1;
+  guideX = null; guideY = null; guideCX = null; guideCY = null;
+  document.getElementById('dropHints').style.pointerEvents = '';
+  redrawGuides();
+  document.getElementById('snapHint').classList.remove('visible');
+  if (!e.touches) wrap.style.cursor = 'crosshair';
+}
+
+wrap.addEventListener('mousedown',  onDown);
+wrap.addEventListener('mousemove',  onMove);
+wrap.addEventListener('mouseup',    onUp);
+wrap.addEventListener('mouseleave', onUp);
+wrap.addEventListener('touchstart', onDown,  { passive: false });
+wrap.addEventListener('touchmove',  onMove,  { passive: false });
+wrap.addEventListener('touchend',   onUp);
+wrap.addEventListener('touchcancel',onUp);
+
+// ── Image loading ──
+function loadImg(file, side) {
+  const img = new Image();
+  img.onload = () => {
+    if (side === 'L') imgL = img; else imgR = img;
+    const card  = document.getElementById(side === 'L' ? 'cardL' : 'cardR');
+    const thumb = document.getElementById(side === 'L' ? 'thumbL' : 'thumbR');
+    card.classList.add('has-img');
+    thumb.style.backgroundImage = `url(${URL.createObjectURL(file)})`;
+    const hint = document.getElementById(side === 'L' ? 'hintL' : 'hintR');
+    hint.classList.remove('empty');
+    hint.classList.add('hidden');
+    const oneOnly = (imgL && !imgR) || (!imgL && imgR);
+    if (oneOnly) showChips(imgL || imgR); else hideChips();
+    redraw();
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+function removeImg(side) {
+  if (side === 'L') imgL = null; else imgR = null;
+  const card  = document.getElementById(side === 'L' ? 'cardL' : 'cardR');
+  const thumb = document.getElementById(side === 'L' ? 'thumbL' : 'thumbR');
+  card.classList.remove('has-img');
+  thumb.style.backgroundImage = '';
+  const hint = document.getElementById(side === 'L' ? 'hintL' : 'hintR');
+  hint.classList.remove('hidden');
+  hint.classList.add('empty');
+  const oneOnly = (imgL && !imgR) || (!imgL && imgR);
+  if (oneOnly) showChips(imgL || imgR); else hideChips();
+  redraw();
+}
+
+document.getElementById('fileLs').addEventListener('change', e => { if (e.target.files[0]) loadImg(e.target.files[0], 'L'); });
+document.getElementById('fileRs').addEventListener('change', e => { if (e.target.files[0]) loadImg(e.target.files[0], 'R'); });
+document.getElementById('fileL').addEventListener('change', e => { if (e.target.files[0]) loadImg(e.target.files[0], 'L'); });
+document.getElementById('fileR').addEventListener('change', e => { if (e.target.files[0]) loadImg(e.target.files[0], 'R'); });
+document.getElementById('removeL').addEventListener('click', e => { e.stopPropagation(); removeImg('L'); });
+document.getElementById('removeR').addEventListener('click', e => { e.stopPropagation(); removeImg('R'); });
+
+// ── Text ──
+const fsSlider = document.getElementById('fontSize');
+const fsVal    = document.getElementById('fsVal');
+
+fsSlider.addEventListener('input', () => {
+  fsVal.textContent = fsSlider.value;
+  if (selIdx >= 0) { texts[selIdx].size = parseInt(fsSlider.value); redraw(); }
+});
+document.getElementById('fontColor').addEventListener('input', e => {
+  if (selIdx >= 0) { texts[selIdx].color = e.target.value; redraw(); }
+});
+document.getElementById('fontSel').addEventListener('change', e => {
+  if (selIdx >= 0) { texts[selIdx].font = e.target.value; redraw(); }
+});
+
+document.getElementById('addTxtBtn').addEventListener('click', addText);
+document.getElementById('txtInput').addEventListener('keydown', e => { if (e.key === 'Enter') addText(); });
+
+function addText() {
+  const val = document.getElementById('txtInput').value.trim();
+  if (!val) return;
+  const font  = document.getElementById('fontSel').value;
+  const size  = parseInt(fsSlider.value);
+  const color = document.getElementById('fontColor').value;
+  ctx.font = `400 ${size}px "${font}", sans-serif`;
+  const tw = ctx.measureText(val).width;
+  texts.push({ text: val, x: Math.round(CW/2 - tw/2), y: Math.round(CH/2 - size/2), font, size, color });
+  selIdx = texts.length - 1;
+  document.getElementById('txtInput').value = '';
+  renderLayers(); redraw();
+
+  // 텍스트 추가 시 자동으로 패널 스크롤을 맨 아래로 내려 새 레이어를 보여줌
+  const panelsContainer = document.querySelector('.panels');
+  setTimeout(() => {
+    panelsContainer.scrollTo({ top: panelsContainer.scrollHeight, behavior: 'smooth' });
+  }, 50);
+}
+
+document.addEventListener('keydown', e => {
+  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selIdx >= 0) {
+    texts.splice(selIdx, 1);
+    selIdx = texts.length > 0 ? Math.min(selIdx, texts.length - 1) : -1;
+    renderLayers(); redraw();
+  }
+});
+
+function renderLayers() {
+  const list = document.getElementById('layerList');
+  list.innerHTML = '';
+  texts.forEach((t, i) => {
+    const el = document.createElement('div');
+    el.className = 'layer-item' + (i === selIdx ? ' selected' : '');
+    el.innerHTML = `
+      <div class="layer-dot" style="background:${t.color};border:1px solid rgba(0,0,0,0.12)"></div>
+      <span class="layer-txt">${t.text}</span>
+      <button class="layer-del" data-i="${i}" aria-label="삭제">
+        <i class="ti ti-trash" style="font-size:13px;pointer-events:none"></i>
+      </button>`;
+    el.addEventListener('click', ev => {
+      if (ev.target.closest('.layer-del')) return;
+      selIdx = i;
+      fsSlider.value = t.size; fsVal.textContent = t.size;
+      document.getElementById('fontColor').value = t.color;
+      document.getElementById('fontSel').value = t.font;
+      renderLayers(); redraw();
+    });
+    list.appendChild(el);
+  });
+  list.querySelectorAll('.layer-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const i = parseInt(btn.dataset.i);
+      texts.splice(i, 1);
+      selIdx = texts.length > 0 ? Math.min(selIdx, texts.length - 1) : -1;
+      renderLayers(); redraw();
+    });
+  });
+}
+
+// ── Download ──
+document.getElementById('dlBtn').addEventListener('click', () => {
+  const off = document.createElement('canvas');
+  off.width = CW; off.height = CH;
+  redraw(off.getContext('2d'));
+  off.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'collage_1179x707.png';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, 'image/png');
+});
+
+// ── Init ──
+document.getElementById('hintL').classList.add('empty');
+document.getElementById('hintR').classList.add('empty');
+redraw();
+</script>
+</body>
+</html>
