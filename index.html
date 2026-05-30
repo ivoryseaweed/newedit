@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collage Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f3ef;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #e0dbd3;
+    --border2: #c8c2b8;
+    --text: #1a1815;
+    --text2: #6b6560;
+    --text3: #a09990;
+    --accent: #2a2520;
+    --radius: 6px;
+    --radius-lg: 10px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 16px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .logo span { color: var(--text3); font-weight: 300; }
+
+  /* ── Layout ── */
+  .app {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── Canvas Area ── */
+  .canvas-area {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .canvas-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1179 / 707;
+    background: #1a1815;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    cursor: crosshair;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.12);
+  }
+
+  #mainCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* drop zones overlay – only visible when no image */
+  .drop-zones {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px dashed rgba(255,255,255,0.18);
+    transition: background .2s;
+    pointer-events: auto;
+    cursor: pointer;
+    position: relative;
+  }
+  .drop-zone:first-child { border-right: none; }
+  .drop-zone.has-image { pointer-events: none; border-color: transparent; }
+  .drop-zone.dragging { background: rgba(255,255,255,0.07); }
+  .drop-zone i { font-size: 28px; color: rgba(255,255,255,0.3); }
+  .drop-zone p { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: .04em; }
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .panel {
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+  }
+  .panel-title {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .panel-title i { font-size: 14px; }
+
+  /* upload buttons */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .upload-card {
+    aspect-ratio: 5/3;
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface2);
+    transition: border-color .15s, background .15s;
+  }
+  .upload-card:hover { border-color: var(--accent); background: var(--bg); }
+  .upload-card i { font-size: 20px; color: var(--text3); }
+  .upload-card span { font-size: 10px; color: var(--text3); letter-spacing: .04em; }
+  .upload-card input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-card.has-img { border-style: solid; border-color: var(--border2); }
+  .upload-card.has-img i, .upload-card.has-img span { display: none; }
+  .upload-card .thumb {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center;
+    border-radius: 5px;
+  }
+  .upload-card .remove-img {
+    position: absolute; top: 4px; right: 4px;
+    width: 20px; height: 20px;
+    background: rgba(0,0,0,0.55);
+    border-radius: 50%;
+    display: none;
+    align-items: center; justify-content: center;
+    cursor: pointer; z-index: 10;
+  }
+  .upload-card:hover .remove-img { display: flex; }
+  .upload-card .remove-img i { font-size: 12px; color: #fff; pointer-events: none; }
+
+  /* mute color chips */
+  .color-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .color-chip {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform .15s, border-color .15s;
+    flex-shrink: 0;
+  }
+  .color-chip:hover { transform: scale(1.15); }
+  .color-chip.active { border-color: var(--accent); transform: scale(1.12); }
+  .chips-label { font-size: 11px; color: var(--text2); margin-top: 8px; }
+
+  /* text overlay */
+  .text-controls { display: flex; flex-direction: column; gap: 8px; }
+  .input-row { display: flex; gap: 6px; }
+  .txt-input {
+    flex: 1;
+    height: 32px;
+    padding: 0 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .txt-input:focus { border-color: var(--accent); }
+  .ctrl-row { display: flex; gap: 6px; align-items: center; }
+  .ctrl-label { font-size: 11px; color: var(--text2); white-space: nowrap; }
+  select.font-sel {
+    flex: 1;
+    height: 30px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 0 6px;
+    outline: none;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border2);
+    border-radius: 2px;
+    outline: none;
+    flex: 1;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .size-val {
+    font-size: 11px; color: var(--text2);
+    min-width: 26px; text-align: right;
+    font-family: 'DM Mono', monospace;
+  }
+  input[type=color] {
+    width: 30px; height: 30px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer; padding: 2px;
+    background: var(--surface2);
+  }
+  .btn-add {
+    height: 30px; padding: 0 12px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer; white-space: nowrap;
+    transition: opacity .15s;
+  }
+  .btn-add:hover { opacity: .8; }
+
+  /* text layer list */
+  .layer-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .layer-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+    background: var(--surface2);
+  }
+  .layer-item:hover { border-color: var(--border2); }
+  .layer-item.selected { border-color: var(--accent); background: var(--bg); }
+  .layer-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .layer-txt { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .layer-del {
+    font-size: 14px; color: var(--text3); cursor: pointer; padding: 0 2px;
+    background: none; border: none;
+    transition: color .12s;
+  }
+  .layer-del:hover { color: #c0392b; }
+
+  /* snapping hint */
+  .snap-hint {
+    font-size: 11px; color: var(--text3);
+    margin-top: 6px;
+    display: none;
+  }
+  .snap-hint.visible { display: block; }
+
+  /* download */
+  .btn-download {
+    width: 100%; height: 40px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    letter-spacing: .04em;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: opacity .15s;
+  }
+  .btn-download:hover { opacity: .8; }
+  .btn-download i { font-size: 16px; }
+
+  .output-info {
+    font-size: 11px; color: var(--text3);
+    text-align: center; margin-top: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* guide lines overlay on canvas */
+  #guideCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 3;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">Collage <span>Editor</span></span>
+  <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">1179 × 707 px</span>
+</header>
+
+<div class="app">
+
+  <!-- Canvas -->
+  <div class="canvas-area">
+    <div class="canvas-container" id="canvasContainer">
+      <canvas id="mainCanvas" width="1179" height="707"></canvas>
+      <canvas id="guideCanvas" width="1179" height="707"></canvas>
+
+      <div class="drop-zones" id="dropZones">
+        <div class="drop-zone" id="dropL">
+          <i class="ti ti-photo"></i>
+          <p>좌측 사진</p>
+          <input type="file" id="fileL" accept="image/*">
+        </div>
+        <div class="drop-zone" id="dropR">
+          <i class="ti ti-photo"></i>
+          <p>우측 사진</p>
+          <input type="file" id="fileR" accept="image/*">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <!-- Upload -->
+    <div class="panel">
+      <div class="panel-title"><i class="ti ti-upload"></i> 이미지 업로드</div>
+      <div class="upload-grid">
+        <div class="upload-card" id="cardL">
+          <i class="ti ti-layout-sidebar"></i>
+          <span>좌측</span>
+          <input type="file" id="fileLs" accept="image/*">
+          <div class="thumb" id="thumbL"></div>
+          <div class="remove-img" id="removeL"><i class="ti ti-x"></i></div>
+        </div>
+        <div class="upload-card" id="cardR">
+          <i class="ti ti-layout-sidebar-right"></i>
+          <span>우측</span>
+          <input type="file" id="fileRs" accept="image/*">
+          <div class="thumb" id="thumbR"></div>
+          <div class="remove-img" id="removeR"><i class="ti ti-x"></i></div>
+        </div>
+      </div>
+
+      <!-- Mute color chips (shown when only 1 image) -->
+      <div id="muteSection" style="display:none">
+        <p class="chips-label">반대쪽 배경 컬러 선택</p>
+        <div class="color-chips" id="colorChips"></div>
+      </div>
+    </div>
+
+    <!-- Text -->
+    <div class="panel">
+      <div class="panel-title"><i class="ti ti-text-size"></i> 텍스트 오버레이</div>
+      <div class="text-controls">
+        <div class="input-row">
+          <input type="text" id="txtInput" class="txt-input" placeholder="텍스트 입력...">
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">폰트</span>
+          <select id="fontSel" class="font-sel">
+            <option value="DM Sans">DM Sans</option>
+            <option value="Georgia">Georgia</option>
+            <option value="DM Mono">DM Mono</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">크기</span>
+          <input type="range" id="fontSize" min="12" max="120" value="48">
+          <span class="size-val" id="fsVal">48</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">색상</span>
+          <input type="color" id="fontColor" value="#ffffff">
+          <button class="btn-add" id="addTxtBtn">+ 추가</button>
+        </div>
+
+        <div class="layer-list" id="layerList"></div>
+        <p class="snap-hint" id="snapHint"><i class="ti ti-git-merge" style="font-size:11px"></i> 정렬 안내선 활성화됨</p>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">텍스트 선택 후 <kbd style="font-size:10px;padding:1px 5px;border:1px solid var(--border2);border-radius:3px">Delete</kbd> 키로 삭제</p>
+      </div>
+    </div>
+
+    <!-- Download -->
+    <div class="panel" style="margin-top:auto">
+      <button class="btn-download" id="dlBtn">
+        <i class="ti ti-download"></i> 다운로드
+      </button>
+      <p class="output-info">PNG · 1179 × 707 px</p>
+    </div>
+
+  </aside>
+</div>
+
+<script>
+const CW = 1179, CH = 707, SW = 589;
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+const guideCanvas = document.getElementById('guideCanvas');
+const gctx = guideCanvas.getContext('2d');
+
+let imgL = null, imgR = null;
+let solidColor = null; // chosen mute color for blank side
+let selectedChip = null;
+let texts = [];
+let selIdx = -1;
+let dragIdx = -1;
+let dragOX = 0, dragOY = 0;
+let guideX = null, guideY = null;
+let guideCX = null, guideCY = null; // center guides
+const SNAP_THRESH = 10;
+const CENTER_X = CW / 2;   // 589.5
+const CENTER_Y = CH / 2;   // 353.5
+const SLOT_CX_L = SW / 2;  // 294.5 — left slot center
+const SLOT_CX_R = SW + SW / 2; // 883.5 — right slot center
+const MUTE_COUNT = 8;
+
+// ── Scale helper: canvas logical → CSS pixel ──
+function scale() {
+  return canvas.getBoundingClientRect().width / CW;
+}
+
+// ── Color extraction ──
+function extractMutedPalette(img) {
+  const tc = document.createElement('canvas');
+  tc.width = 80; tc.height = 48;
+  const tx = tc.getContext('2d');
+  tx.drawImage(img, 0, 0, 80, 48);
+  const data = tx.getImageData(0, 0, 80, 48).data;
+
+  // sample grid
+  const samples = [];
+  for (let i = 0; i < data.length; i += 4) {
+    samples.push([data[i], data[i+1], data[i+2]]);
+  }
+
+  // simple k-means style: pick spread samples
+  const palette = [];
+  const picked = new Set();
+
+  // find average (muted base)
+  let ar = 0, ag = 0, ab = 0;
+  samples.forEach(([r,g,b]) => { ar+=r; ag+=g; ab+=b; });
+  ar = Math.round(ar/samples.length);
+  ag = Math.round(ag/samples.length);
+  ab = Math.round(ab/samples.length);
+
+  // generate muted variants
+  const muteShades = [
+    [0.5, 0.55],   // dark mute
+    [0.55, 0.6],
+    [0.6, 0.65],
+    [0.65, 0.7],
+    [0.7, 0.75],
+    [0.75, 0.8],
+    [0.8, 0.85],
+    [0.85, 0.9],   // light mute
+  ];
+
+  muteShades.forEach(([imgW, whiteW]) => {
+    const r = Math.round(ar * imgW + 255 * (1 - imgW) * whiteW + 200 * (1 - whiteW) * (1 - imgW));
+    const g = Math.round(ag * imgW + 255 * (1 - imgW) * whiteW + 200 * (1 - whiteW) * (1 - imgW));
+    const b = Math.round(ab * imgW + 255 * (1 - imgW) * whiteW + 200 * (1 - whiteW) * (1 - imgW));
+    palette.push(`rgb(${Math.min(255,r)},${Math.min(255,g)},${Math.min(255,b)})`);
+  });
+
+  return palette;
+}
+
+function showMuteChips(img) {
+  const chips = extractMutedPalette(img);
+  const container = document.getElementById('colorChips');
+  container.innerHTML = '';
+  chips.forEach((color, i) => {
+    const el = document.createElement('div');
+    el.className = 'color-chip' + (i === 0 ? ' active' : '');
+    el.style.background = color;
+    el.title = color;
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      solidColor = color;
+      drawFrame();
+    });
+    container.appendChild(el);
+    if (i === 0) solidColor = color;
+  });
+  document.getElementById('muteSection').style.display = 'block';
+  drawFrame();
+}
+
+function hideMuteChips() {
+  document.getElementById('muteSection').style.display = 'none';
+  solidColor = null;
+}
+
+// ── Draw helpers ──
+function drawImageCover(ic, img, dx, dy, dw, dh) {
+  const ir = img.naturalWidth / img.naturalHeight;
+  const cr = dw / dh;
+  let sx, sy, sw, sh;
+  if (ir > cr) {
+    sh = img.naturalHeight; sw = sh * cr;
+    sx = (img.naturalWidth - sw) / 2; sy = 0;
+  } else {
+    sw = img.naturalWidth; sh = sw / cr;
+    sx = 0; sy = (img.naturalHeight - sh) / 2;
+  }
+  ic.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+}
+
+function drawFrame(ic) {
+  const c = ic || ctx;
+  c.clearRect(0, 0, CW, CH);
+
+  if (!imgL && !imgR) {
+    c.fillStyle = '#1a1815';
+    c.fillRect(0, 0, CW, CH);
+  } else if (imgL && !imgR) {
+    // left: image, right: solid color
+    drawImageCover(c, imgL, 0, 0, SW, CH);
+    c.fillStyle = solidColor || '#808080';
+    c.fillRect(SW, 0, SW, CH);
+  } else if (!imgL && imgR) {
+    // left: solid color, right: image
+    c.fillStyle = solidColor || '#808080';
+    c.fillRect(0, 0, SW, CH);
+    drawImageCover(c, imgR, SW, 0, SW, CH);
+  } else {
+    drawImageCover(c, imgL, 0, 0, SW, CH);
+    drawImageCover(c, imgR, SW, 0, SW, CH);
+  }
+
+  // divider
+  c.strokeStyle = 'rgba(255,255,255,0.15)';
+  c.lineWidth = 1;
+  c.beginPath(); c.moveTo(SW, 0); c.lineTo(SW, CH); c.stroke();
+
+  // texts
+  texts.forEach((t, i) => {
+    c.save();
+    c.font = `400 ${t.size}px "${t.font}", sans-serif`;
+    c.textAlign = 'left';
+    c.textBaseline = 'top';
+    if (i === selIdx && !ic) {
+      const tw = c.measureText(t.text).width;
+      c.strokeStyle = 'rgba(255,255,255,0.6)';
+      c.lineWidth = 1;
+      c.setLineDash([5, 4]);
+      c.strokeRect(t.x - 4, t.y - 4, tw + 8, t.size * 1.2 + 8);
+      c.setLineDash([]);
+    }
+    c.fillStyle = t.color;
+    c.fillText(t.text, t.x, t.y);
+    c.restore();
+  });
+}
+
+function drawGuides() {
+  gctx.clearRect(0, 0, CW, CH);
+  const anySnap = guideX !== null || guideY !== null;
+  const anyCenter = guideCX !== null || guideCY !== null;
+  if (!anySnap && !anyCenter) return;
+  gctx.save();
+  gctx.lineWidth = 1;
+  gctx.setLineDash([6, 4]);
+
+  // text-to-text snap guides (yellow)
+  gctx.strokeStyle = 'rgba(255, 214, 0, 0.85)';
+  if (guideY !== null) {
+    gctx.beginPath(); gctx.moveTo(0, guideY); gctx.lineTo(CW, guideY); gctx.stroke();
+  }
+  if (guideX !== null) {
+    gctx.beginPath(); gctx.moveTo(guideX, 0); gctx.lineTo(guideX, CH); gctx.stroke();
+  }
+
+  // center guide lines (cyan)
+  gctx.setLineDash([8, 5]);
+  gctx.strokeStyle = 'rgba(0, 220, 255, 0.85)';
+  if (guideCY !== null) {
+    gctx.beginPath(); gctx.moveTo(0, guideCY); gctx.lineTo(CW, guideCY); gctx.stroke();
+  }
+  if (guideCX !== null) {
+    gctx.beginPath(); gctx.moveTo(guideCX, 0); gctx.lineTo(guideCX, CH); gctx.stroke();
+  }
+  gctx.restore();
+}
+
+// ── Canvas interaction ──
+function csCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const s = CW / rect.width;
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: (cx - rect.left) * s, y: (cy - rect.top) * s };
+}
+
+function hitText(x, y) {
+  for (let i = texts.length - 1; i >= 0; i--) {
+    ctx.font = `400 ${texts[i].size}px "${texts[i].font}", sans-serif`;
+    const tw = ctx.measureText(texts[i].text).width;
+    const th = texts[i].size * 1.2;
+    if (x >= texts[i].x - 6 && x <= texts[i].x + tw + 6 &&
+        y >= texts[i].y - 6 && y <= texts[i].y + th + 6) return i;
+  }
+  return -1;
+}
+
+canvas.addEventListener('mousedown', e => {
+  const { x, y } = csCoords(e);
+  const hi = hitText(x, y);
+  if (hi >= 0) {
+    dragIdx = hi; selIdx = hi;
+    dragOX = x - texts[hi].x;
+    dragOY = y - texts[hi].y;
+    renderLayers(); drawFrame();
+  } else {
+    selIdx = -1; renderLayers(); drawFrame();
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const { x, y } = csCoords(e);
+  if (dragIdx >= 0) {
+    texts[dragIdx].x = x - dragOX;
+    texts[dragIdx].y = y - dragOY;
+
+    guideX = null; guideY = null;
+    guideCX = null; guideCY = null;
+
+    // text-to-text snapping (yellow)
+    texts.forEach((t, i) => {
+      if (i === dragIdx) return;
+      if (Math.abs(texts[dragIdx].y - t.y) < SNAP_THRESH) {
+        guideY = t.y; texts[dragIdx].y = t.y;
+      }
+      if (Math.abs(texts[dragIdx].x - t.x) < SNAP_THRESH) {
+        guideX = t.x; texts[dragIdx].x = t.x;
+      }
+    });
+
+    // center-line snapping (cyan) — text center vs canvas/slot centers
+    const t = texts[dragIdx];
+    ctx.font = `400 ${t.size}px "${t.font}", sans-serif`;
+    const tw = ctx.measureText(t.text).width;
+    const th = t.size;
+    const tCX = t.x + tw / 2;
+    const tCY = t.y + th / 2;
+
+    // vertical center of canvas
+    if (Math.abs(tCY - CENTER_Y) < SNAP_THRESH) {
+      guideCY = CENTER_Y; texts[dragIdx].y = CENTER_Y - th / 2;
+    }
+    // horizontal center (divider line)
+    if (Math.abs(tCX - CENTER_X) < SNAP_THRESH) {
+      guideCX = CENTER_X; texts[dragIdx].x = CENTER_X - tw / 2;
+    }
+    // left slot horizontal center
+    if (Math.abs(tCX - SLOT_CX_L) < SNAP_THRESH) {
+      guideCX = SLOT_CX_L; texts[dragIdx].x = SLOT_CX_L - tw / 2;
+    }
+    // right slot horizontal center
+    if (Math.abs(tCX - SLOT_CX_R) < SNAP_THRESH) {
+      guideCX = SLOT_CX_R; texts[dragIdx].x = SLOT_CX_R - tw / 2;
+    }
+
+    const snapActive = guideX !== null || guideY !== null || guideCX !== null || guideCY !== null;
+    document.getElementById('snapHint').classList.toggle('visible', snapActive);
+    drawGuides(); drawFrame();
+    canvas.style.cursor = 'grabbing';
+  } else {
+    canvas.style.cursor = hitText(x, y) >= 0 ? 'grab' : 'crosshair';
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  dragIdx = -1; guideX = null; guideY = null; guideCX = null; guideCY = null;
+  drawGuides(); canvas.style.cursor = 'crosshair';
+  document.getElementById('snapHint').classList.remove('visible');
+});
+canvas.addEventListener('mouseleave', () => {
+  if (dragIdx >= 0) { dragIdx = -1; guideX = null; guideY = null; guideCX = null; guideCY = null; drawGuides(); }
+});
+
+// ── File loading ──
+function loadImage(file, side) {
+  const img = new Image();
+  img.onload = () => {
+    if (side === 'L') imgL = img; else imgR = img;
+    updateUploadUI(side, file, img);
+
+    const bothEmpty = !imgL && !imgR;
+    const onlyOne = (imgL && !imgR) || (!imgL && imgR);
+
+    if (onlyOne) {
+      const src = imgL || imgR;
+      showMuteChips(src);
+    } else {
+      hideMuteChips();
+    }
+
+    updateDropZones();
+    drawFrame();
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+function updateUploadUI(side, file, img) {
+  const cardId = side === 'L' ? 'cardL' : 'cardR';
+  const thumbId = side === 'L' ? 'thumbL' : 'thumbR';
+  const card = document.getElementById(cardId);
+  const thumb = document.getElementById(thumbId);
+  card.classList.add('has-img');
+  thumb.style.backgroundImage = `url(${URL.createObjectURL(file)})`;
+}
+
+function removeImage(side) {
+  if (side === 'L') { imgL = null; }
+  else { imgR = null; }
+  const cardId = side === 'L' ? 'cardL' : 'cardR';
+  const thumbId = side === 'L' ? 'thumbL' : 'thumbR';
+  document.getElementById(cardId).classList.remove('has-img');
+  document.getElementById(thumbId).style.backgroundImage = '';
+
+  const onlyOne = (imgL && !imgR) || (!imgL && imgR);
+  if (onlyOne) {
+    const src = imgL || imgR;
+    showMuteChips(src);
+  } else {
+    hideMuteChips();
+  }
+  updateDropZones();
+  drawFrame();
+}
+
+function updateDropZones() {
+  document.getElementById('dropL').classList.toggle('has-image', !!imgL);
+  document.getElementById('dropR').classList.toggle('has-image', !!imgR);
+}
+
+// sidebar file inputs
+['fileLs','fileRs'].forEach((id, i) => {
+  document.getElementById(id).addEventListener('change', e => {
+    if (e.target.files[0]) loadImage(e.target.files[0], i === 0 ? 'L' : 'R');
+  });
+});
+// canvas drop zone file inputs
+['fileL','fileR'].forEach((id, i) => {
+  document.getElementById(id).addEventListener('change', e => {
+    if (e.target.files[0]) loadImage(e.target.files[0], i === 0 ? 'L' : 'R');
+  });
+});
+
+document.getElementById('removeL').addEventListener('click', e => { e.stopPropagation(); removeImage('L'); });
+document.getElementById('removeR').addEventListener('click', e => { e.stopPropagation(); removeImage('R'); });
+
+// ── Text ──
+const fsSlider = document.getElementById('fontSize');
+const fsVal = document.getElementById('fsVal');
+fsSlider.addEventListener('input', () => {
+  fsVal.textContent = fsSlider.value;
+  if (selIdx >= 0) { texts[selIdx].size = parseInt(fsSlider.value); drawFrame(); }
+});
+document.getElementById('fontColor').addEventListener('input', e => {
+  if (selIdx >= 0) { texts[selIdx].color = e.target.value; drawFrame(); }
+});
+document.getElementById('fontSel').addEventListener('change', e => {
+  if (selIdx >= 0) { texts[selIdx].font = e.target.value; drawFrame(); }
+});
+
+document.getElementById('addTxtBtn').addEventListener('click', addText);
+document.getElementById('txtInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addText();
+});
+
+function addText() {
+  const val = document.getElementById('txtInput').value.trim();
+  if (!val) return;
+  const font = document.getElementById('fontSel').value;
+  const size = parseInt(fsSlider.value);
+  // measure to center properly
+  ctx.font = `400 ${size}px "${font}", sans-serif`;
+  const tw = ctx.measureText(val).width;
+  texts.push({
+    text: val,
+    x: Math.round(CW / 2 - tw / 2),
+    y: Math.round(CH / 2 - size / 2),
+    font,
+    size,
+    color: document.getElementById('fontColor').value
+  });
+  selIdx = texts.length - 1;
+  document.getElementById('txtInput').value = '';
+  renderLayers(); drawFrame();
+}
+
+// Delete / Backspace key removes selected text (only when not typing in input)
+document.addEventListener('keydown', e => {
+  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selIdx >= 0) {
+    texts.splice(selIdx, 1);
+    selIdx = texts.length > 0 ? Math.min(selIdx, texts.length - 1) : -1;
+    renderLayers(); drawFrame();
+  }
+});
+
+function renderLayers() {
+  const list = document.getElementById('layerList');
+  list.innerHTML = '';
+  texts.forEach((t, i) => {
+    const el = document.createElement('div');
+    el.className = 'layer-item' + (i === selIdx ? ' selected' : '');
+    el.innerHTML = `
+      <div class="layer-dot" style="background:${t.color};border:1px solid rgba(0,0,0,0.15)"></div>
+      <span class="layer-txt">${t.text}</span>
+      <button class="layer-del" data-i="${i}" title="삭제"><i class="ti ti-trash" style="font-size:12px;pointer-events:none"></i></button>
+    `;
+    el.addEventListener('click', ev => {
+      if (ev.target.closest('.layer-del')) return;
+      selIdx = i;
+      fsSlider.value = texts[i].size; fsVal.textContent = texts[i].size;
+      document.getElementById('fontColor').value = texts[i].color;
+      document.getElementById('fontSel').value = texts[i].font;
+      renderLayers(); drawFrame();
+    });
+    list.appendChild(el);
+  });
+  list.querySelectorAll('.layer-del').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const i = parseInt(btn.dataset.i);
+      texts.splice(i, 1);
+      if (selIdx >= texts.length) selIdx = texts.length - 1;
+      renderLayers(); drawFrame();
+    });
+  });
+}
+
+// ── Download ──
+document.getElementById('dlBtn').addEventListener('click', () => {
+  // draw to offscreen canvas at full resolution
+  const off = document.createElement('canvas');
+  off.width = CW; off.height = CH;
+  drawFrame(off.getContext('2d'));
+
+  // use toBlob for reliable download
+  off.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'collage_1179x707.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, 'image/png');
+});
+
+// ── Init ──
+drawFrame();
+</script>
+</body>
+</html>
